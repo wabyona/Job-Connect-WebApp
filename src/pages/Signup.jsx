@@ -1,135 +1,152 @@
-// src/pages/Signup.jsx
 import React, { useState } from "react";
 import {
-  Container,
+  Box,
+  Card,
+  CardContent,
   Typography,
   TextField,
   Button,
-  MenuItem,
-  CircularProgress,
-  Box,
-  Paper,
+  Alert,
+  Divider,
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
-import api from "../services/Api"; // Make sure this exists
+import axios from "axios";
+import { validateEmail, validatePassword } from "../utils/Validators";
 
-const Signup = () => {
-  const navigate = useNavigate();
-  const [form, setForm] = useState({
-    full_name: "",
-    email: "",
-    password: "",
-    user_type: "job_seeker",
-    phone_number: "",
-  });
-
+const Signup = ({ onSignupSuccess }) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
+
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (!validatePassword(password)) {
+      setError("Password must be at least 8 characters and include a number.");
+      return;
+    }
+    if (password !== confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
-    setError("");
 
     try {
-      const response = await api.post("/signup", form);
-      console.log("Signup success:", response.data);
-      navigate("/login");
-    } catch (err) {
-      console.error("Signup failed:", err);
-      setError(err.response?.data?.message || "Signup failed");
-    } finally {
+      const response = await axios.post("http://localhost:5000/api/auth/signup", {
+        email,
+        password,
+      });
+
+      // Assume response success message or user data
       setLoading(false);
+      onSignupSuccess && onSignupSuccess();
+
+    } catch (err) {
+      setLoading(false);
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError("Signup failed. Please try again.");
+      }
     }
   };
 
   return (
-    <Container maxWidth="sm">
-      <Paper elevation={3} sx={{ p: 4, mt: 5 }}>
-        <Typography variant="h4" gutterBottom>
-          Sign Up
-        </Typography>
-
-        <form onSubmit={handleSubmit}>
-          <TextField
-            label="Full Name"
-            name="full_name"
-            value={form.full_name}
-            onChange={handleChange}
-            fullWidth
-            required
-            margin="normal"
-          />
-
-          <TextField
-            label="Email"
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={handleChange}
-            fullWidth
-            required
-            margin="normal"
-          />
-
-          <TextField
-            label="Password"
-            name="password"
-            type="password"
-            value={form.password}
-            onChange={handleChange}
-            fullWidth
-            required
-            margin="normal"
-          />
-
-          <TextField
-            label="Phone Number"
-            name="phone_number"
-            value={form.phone_number}
-            onChange={handleChange}
-            fullWidth
-            margin="normal"
-          />
-
-          <TextField
-            select
-            label="User Type"
-            name="user_type"
-            value={form.user_type}
-            onChange={handleChange}
-            fullWidth
-            required
-            margin="normal"
-          >
-            <MenuItem value="job_seeker">Job Seeker</MenuItem>
-            <MenuItem value="employer">Employer</MenuItem>
-          </TextField>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        p: 2,
+        bgcolor: "background.default",
+      }}
+    >
+      <Card sx={{ width: "100%", maxWidth: 420, borderRadius: 3, boxShadow: 4 }}>
+        <CardContent sx={{ p: 4 }}>
+          <Typography variant="h5" fontWeight="600" gutterBottom>
+            Create Account
+          </Typography>
+          <Typography variant="body2" color="text.secondary" mb={2}>
+            Sign up to get started with Job Connect
+          </Typography>
 
           {error && (
-            <Typography color="error" sx={{ mt: 2 }}>
+            <Alert severity="error" sx={{ mb: 2 }}>
               {error}
-            </Typography>
+            </Alert>
           )}
 
-          <Box mt={3} textAlign="center">
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              disabled={loading}
+          <Box component="form" onSubmit={handleSubmit} noValidate>
+            <TextField
               fullWidth
+              label="Email address"
+              type="email"
+              required
+              margin="normal"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+
+            <TextField
+              fullWidth
+              label="Password"
+              type="password"
+              required
+              margin="normal"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              helperText={
+                validatePassword(password)
+                  ? "Strong password"
+                  : "Password must be ≥8 chars and include a number."
+              }
+            />
+
+            <TextField
+              fullWidth
+              label="Confirm password"
+              type="password"
+              required
+              margin="normal"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              type="submit"
+              disabled={loading}
+              sx={{ py: 1.5, mt: 1, mb: 2 }}
             >
-              {loading ? <CircularProgress size={24} color="inherit" /> : "Sign Up"}
+              {loading ? "Signing up..." : "Sign up"}
             </Button>
           </Box>
-        </form>
-      </Paper>
-    </Container>
+
+          <Divider sx={{ my: 3 }} />
+
+          <Typography variant="caption" display="block" align="center">
+            Already have an account?{" "}
+            <Typography
+              component="span"
+              sx={{ color: "primary.main", cursor: "pointer" }}
+              onClick={() => onSignupSuccess && onSignupSuccess("switchToLogin")}
+            >
+              Log in
+            </Typography>
+          </Typography>
+        </CardContent>
+      </Card>
+    </Box>
   );
 };
 

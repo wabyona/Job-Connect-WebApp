@@ -1,80 +1,154 @@
-// src/pages/Login.jsx
 import React, { useState } from "react";
 import {
-  Container,
+  Box,
+  Card,
+  CardContent,
+  Typography,
   TextField,
   Button,
-  Typography,
-  CircularProgress,
+  FormControlLabel,
+  Checkbox,
+  Alert,
+  Divider,
 } from "@mui/material";
-import api from "../services/Api";
-import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { validateEmail, validatePassword } from "../utils/Validators";
 
-export default function Login() {
-  const [form, setForm] = useState({ email: "", password: "" });
+const Login = ({ onLoginSuccess }) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
+  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-
-  const handleChange = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
+
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (!validatePassword(password)) {
+      setError("Password must be at least 8 characters and include a number.");
+      return;
+    }
+
     setLoading(true);
+
     try {
-      const res = await api.post("/login", form);
-      if (res.status === 200) {
-        localStorage.setItem("token", res.data.token);
-        navigate("/dashboard");
+      const response = await axios.post("http://localhost:5000/api/auth/login", {
+        email,
+        password,
+      });
+
+      const { token, user } = response.data;
+      if (remember) {
+        localStorage.setItem("authToken", token);
       } else {
-        alert("Unexpected response. Check server logs.");
+        sessionStorage.setItem("authToken", token);
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      alert("Login failed: " + (error.response?.data?.message || error.message));
-    } finally {
+      // Optionally store user info
+      localStorage.setItem("user", JSON.stringify(user));
+
       setLoading(false);
+      onLoginSuccess && onLoginSuccess(user);
+    } catch (err) {
+      setLoading(false);
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError("Login failed. Please check your credentials.");
+      }
     }
   };
 
   return (
-    <Container maxWidth="sm" sx={{ mt: 5 }}>
-      <Typography variant="h4" gutterBottom>
-        Login
-      </Typography>
-      <form onSubmit={handleSubmit}>
-        <TextField
-          name="email"
-          label="Email"
-          type="email"
-          fullWidth
-          margin="normal"
-          value={form.email}
-          onChange={handleChange}
-          required
-        />
-        <TextField
-          name="password"
-          label="Password"
-          type="password"
-          fullWidth
-          margin="normal"
-          value={form.password}
-          onChange={handleChange}
-          required
-        />
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        p: 2,
+        bgcolor: "background.default",
+      }}
+    >
+      <Card sx={{ width: "100%", maxWidth: 420, borderRadius: 3, boxShadow: 4 }}>
+        <CardContent sx={{ p: 4 }}>
+          <Typography variant="h5" fontWeight="600" gutterBottom>
+            Welcome Back
+          </Typography>
+          <Typography variant="body2" color="text.secondary" mb={2}>
+            Sign in to continue to Job Connect
+          </Typography>
 
-        <Button
-          type="submit"
-          variant="contained"
-          color="primary"
-          fullWidth
-          sx={{ mt: 2 }}
-          disabled={loading}
-        >
-          {loading ? <CircularProgress size={24} color="inherit" /> : "Login"}
-        </Button>
-      </form>
-    </Container>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          <Box component="form" onSubmit={handleSubmit} noValidate>
+            <TextField
+              fullWidth
+              label="Email address"
+              type="email"
+              required
+              margin="normal"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+
+            <TextField
+              fullWidth
+              label="Password"
+              type="password"
+              required
+              margin="normal"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  size="small"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                />
+              }
+              label={<Typography variant="caption">Remember me</Typography>}
+            />
+
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              type="submit"
+              disabled={loading}
+              sx={{ py: 1.5, mt: 1, mb: 2 }}
+            >
+              {loading ? "Logging in..." : "Log in"}
+            </Button>
+          </Box>
+
+          <Divider sx={{ my: 3 }} />
+
+          <Typography variant="caption" display="block" align="center">
+            Don’t have an account?{" "}
+            <Typography
+              component="span"
+              sx={{ color: "primary.main", cursor: "pointer" }}
+              onClick={() => onLoginSuccess && onLoginSuccess("switchToSignup")}
+            >
+              Sign up
+            </Typography>
+          </Typography>
+        </CardContent>
+      </Card>
+    </Box>
   );
-}
+};
+
+export default Login;
